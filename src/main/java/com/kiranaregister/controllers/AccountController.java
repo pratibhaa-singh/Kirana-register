@@ -18,6 +18,11 @@ public class AccountController {
 
   @Autowired private AccountService accountService;
 
+  /**
+   * POST API to create account
+   * @param accountDto
+   * @return
+   */
   @PostMapping(path = "/create")
   public ResponseEntity<ResponseDto> createAccount(@RequestBody @Valid AccountDto accountDto) {
     ResponseDto responseDto = new ResponseDto();

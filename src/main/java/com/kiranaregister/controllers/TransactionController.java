@@ -20,7 +20,12 @@ public class TransactionController {
 
   @Autowired private TransactionService transactionService;
 
-  @PostMapping(path = "/")
+    /**
+     * Post API to record a transaction
+     * @param transactionDto
+     * @return
+     */
+  @PostMapping
   public ResponseEntity<ResponseDto> recordTransaction(
       @RequestBody @Valid TransactionDto transactionDto) {
     ResponseDto responseDto = new ResponseDto();
@@ -29,7 +34,14 @@ public class TransactionController {
     return ResponseEntity.ok(responseDto);
   }
 
-  @GetMapping(path = "/")
+    /**
+     * GET API to fetch transactions report using date
+     * @param date
+     * @param accountId
+     * @return
+     * @throws ApplicationException
+     */
+  @GetMapping
   public ResponseEntity<ResponseDto> fetchTransaction(
       @RequestParam(name = "date") @DateTimeFormat(pattern = "yyy-mm-dd hh:mm:ss") @Valid
           String date,
@@ -42,6 +54,13 @@ public class TransactionController {
     return ResponseEntity.ok(responseDto);
   }
 
+    /**
+     * PUT API Update transaction using transaction id.
+     * @param transactionId
+     * @param amount
+     * @return
+     * @throws ApplicationException
+     */
   @PutMapping(path = "/{transactionId}")
   public ResponseEntity<ResponseDto> updateTransaction(
       @PathVariable(name = "transactionId")
@@ -57,7 +76,13 @@ public class TransactionController {
     return ResponseEntity.ok(responseDto);
   }
 
-  @DeleteMapping(path = "/{transactionId}")
+    /**
+     * PUT API to soft delete transaction
+     * @param transactionId
+     * @return
+     * @throws ApplicationException
+     */
+  @PutMapping(path = "/{transactionId}")
   public ResponseEntity<ResponseDto> deleteTransaction(
       @PathVariable(name = "transactionId")
           @NotNull(message = "Transaction id can't be null")
