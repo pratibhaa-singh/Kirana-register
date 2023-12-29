@@ -22,5 +22,5 @@ public class TransactionSubResponse {
 
   private TransactionType transactionType;
 
-  private Double supportedCurrencyAmount;
+  private Double netAmount;
 }

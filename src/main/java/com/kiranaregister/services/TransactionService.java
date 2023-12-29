@@ -1,6 +1,7 @@
 package com.kiranaregister.services;
 
 import com.kiranaregister.config.HttpClientConfig;
+import com.kiranaregister.constants.Constants;
 import com.kiranaregister.dtos.Root;
 import com.kiranaregister.dtos.TransactionDto;
 import com.kiranaregister.dtos.TransactionResponse;
@@ -13,6 +14,9 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -30,25 +34,38 @@ public class TransactionService {
   @Value("${conversion.api}")
   private String currencyConversionAPI;
 
+  /**
+   * Create transaction entity and save indb
+   * @param transactionDto
+   * @return
+   */
   public Transaction recordTransaction(TransactionDto transactionDto) {
     Transaction transaction = createTransaction(transactionDto);
     return transactionRepository.save(transaction);
   }
 
+  /**
+   * Create transaction entity from transaction dto
+   * @param transactionDto
+   * @return
+   */
   private Transaction createTransaction(TransactionDto transactionDto) {
     Transaction transaction = new Transaction();
     Account account = accountService.fetchAccountById(transactionDto.getAccountId());
-    transaction.setTransactionType(transactionDto.getTransactionType());
-    transaction.setAmount(transactionDto.getAmount());
+    BeanUtils.copyProperties(transactionDto,transaction);
     transaction.setAccount(account);
-    transaction.setCurrencyType(transactionDto.getCurrencyType());
-    transaction.setPaymentMode(transactionDto.getPaymentMode());
-    transaction.setIsDeleted(false);
-    transaction.setNetAmount(calculateNetAmount(transactionDto, account));
+    transaction.setIsDeleted(Boolean.FALSE);
+    transaction.setNetAmount(calculateNetAmountByBaseReference(transactionDto, account));
     return transaction;
   }
 
-  private Double calculateNetAmount(TransactionDto transactionDto, Account account) {
+  /**
+   * Fetch rates from third party and get amount in supported currency type
+   * @param transactionDto
+   * @param account
+   * @return
+   */
+  private Double calculateNetAmountByBaseReference(TransactionDto transactionDto, Account account) {
     Root root = httpClientConfig.getHttpRequestGetMethod(currencyConversionAPI);
     Map<String, Double> rates = root.getRates();
     Double supportedCoefficient = 1D;
@@ -63,19 +80,31 @@ public class TransactionService {
     return transactionDto.getAmount() * overAllCoefficient;
   }
 
+  /**
+   * Fetch transactions for date
+   * @param date
+   * @param accountId
+   * @return
+   * @throws ApplicationException
+   */
   public TransactionResponse fetchTransaction(String date, Long accountId)
       throws ApplicationException {
     if (accountService.ifAccountExist(accountId)) {
-      Timestamp startDate = Timestamp.valueOf(date);
-      Timestamp endDate = new Timestamp(startDate.getTime() + (24 * 60 * 60 * 1000));
-      return convertToTransactionResponse(
-          transactionRepository.findByCreatedAtAndIsDeleted(startDate, endDate, false, accountId));
+      Timestamp startTimestamp = Timestamp.valueOf(date);
+      Timestamp endTimestamp = new Timestamp(startTimestamp.getTime() + Constants.ONE_DAY_IN_MILLI_SECONDS);
+      return convertToTransactionReport(
+          transactionRepository.findByCreatedAtAndIsDeleted(startTimestamp, endTimestamp, false, accountId));
     } else {
       throw new ApplicationException(HttpStatus.NOT_FOUND, "Account Not Found");
     }
   }
 
-  private TransactionResponse convertToTransactionResponse(List<Transaction> transactionList) {
+  /**
+   * Create transaction report from transaction list
+   * @param transactionList
+   * @return
+   */
+  private TransactionResponse convertToTransactionReport(List<Transaction> transactionList) {
     TransactionResponse transactionResponse = new TransactionResponse();
     transactionResponse.setSupportedCurrency(
         transactionList.get(0).getAccount().getSupportedCurrency());
@@ -116,9 +145,17 @@ public class TransactionService {
     return transactionRepository.save(transaction);
   }
 
+  /**
+   * soft delete transaction
+   * @param transactionId
+   * @throws ApplicationException
+   */
   public void deleteTransaction(Long transactionId) throws ApplicationException {
-    if (transactionRepository.existsById(transactionId)) {
-      transactionRepository.deleteById(transactionId);
+    Optional<Transaction> existingTransactionOptional = transactionRepository.findById(transactionId);
+    if (existingTransactionOptional.isPresent()) {
+      Transaction transaction = existingTransactionOptional.get();
+      transaction.setIsDeleted(Boolean.TRUE);
+      transactionRepository.save(transaction);
     } else {
       throw new ApplicationException(HttpStatus.NOT_FOUND, "Transaction Not Found");
     }
